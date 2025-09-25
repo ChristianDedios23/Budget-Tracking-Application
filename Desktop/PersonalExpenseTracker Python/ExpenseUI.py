@@ -1,6 +1,10 @@
+import os
 import tkinter as tk
 from tkinter import ttk
+from tkinter import filedialog
+import csv
 
+#Edits text in message box
 def editEntryBox(string):
     messageBox.config(state="normal")
     messageBox.delete(0, tk.END)
@@ -37,31 +41,55 @@ def addExpense():
         priceEntry.delete(0, tk.END)
         descriptionEntry.delete(0, tk.END)
 
-#complete these two, change output.csv with file name desired by user
 def exportExpense():
-    with open("output.csv", "w", newline="") as file:
-        headerRow = ["Date", "Category", "Price", "Description"]
-        writer = csv.DictWriter(file, fieldnames=headerRow)
-        writer.writeheader()
-        writer.writerows(expenses)
+    filePath = filedialog.asksaveasfilename(
+        defaultextension=".csv",
+        filetypes=[("CSV files", "*.csv")],
+        title="Save CSV file as..."
+    )
 
-#complete these two, change logic to adjust for table and GUI
-def importExpense(fileName):
-    newExpense = []
-    with open(fileName, mode="r", newline="") as file:
-        csvReader = csv.DictReader(file)
-        for row in csvReader:
-            newExpense.append({
-                "Date" : row["Date"],
-                "Category" : row["Category"],
-                "Price" : row["Price"],
-                "Description" : row["Description"]
-            })
+    if not filePath:
+        return  # user canceled
+
+    with open(os.path.basename(filePath), "w", newline="") as file:
+        writer = csv.writer(file)
+        writer.writerow(treeView["columns"])
         
-        return newExpense
+        for rowId in treeView.get_children():
+            rowItems = treeView.item(rowId)["values"]
+            writer.writerow(rowItems)
+    
+    editEntryBox("Table was successfully exported!")
+
+def importExpense():
+    filePath = filedialog.askopenfilename(
+        filetypes=[("CSV files", "*.csv")],
+        title="Open CSV file"
+    )
+
+    if not filePath:
+        return #user canceled
+
+    #not correct file
+    if not filePath.lower().endswith(".csv"):
+        editEntryBox("Error: Please select a CSV file only.")
+        return
+
+    with open(os.path.basename(filePath), mode="r", newline="") as file:
+        csvReader = csv.reader(file)
+        
+        for rowID in treeView.get_children():
+            treeView.delete(rowID)
+        
+        next(csvReader)
+
+        for row in csvReader:
+            treeView.insert("", tk.END, values=(row[0], row[1], row[2], row[3]))
+        
+    editEntryBox("Table was successfully imported!")
 
 
-
+#Initialize root frame
 root = tk.Tk()
 root.title("Expenses Tracker App")
 root.geometry("600x400")
@@ -81,9 +109,8 @@ leftFrame.grid_rowconfigure(8, weight=1)
 
 
 #Section 1 - Add labels and entrys
-#Make this grid to keep it open space for other items, using place.
-#Date Entry and Label
 
+#Date Entry and Label
 tk.Label(leftFrame, text="Date:").grid(row=0, column=0, padx=5, pady=5)
 dateEntry = tk.Entry(leftFrame, width=15)
 dateEntry.grid(row=0, column=1, padx=5, pady=5)
@@ -107,24 +134,28 @@ descriptionEntry.grid(row=3, column=1)
 addButton = tk.Button(leftFrame, text="Add Expense", width=10, command=addExpense)
 addButton.grid(row=4, column=0, pady=(5,0))
 
-importButton = tk.Button(leftFrame, text="Export CSV", width=9)
+#Import button
+importButton = tk.Button(leftFrame, text="Import CSV", width=9, command=importExpense)
 importButton.grid(row=5, column=0, pady=(20,5))
 
-exportButton = tk.Button(leftFrame, text="Import CSV", width=9)
+#Export button
+exportButton = tk.Button(leftFrame, text="Export CSV", width=9, command=exportExpense)
 exportButton.grid(row=5,column=1, pady=(20,5))
 
+#Delete button
 deleteButton = tk.Button(leftFrame, text="Delete Expense", width=11, command=deleteExpense)
 deleteButton.grid(row=6, column=0, pady=(15,0))
 
+#Tells user to click expense first to delete it
 tk.Label(leftFrame, text="Click Expense First").grid(row=7,column=0)
 
+#Message box label, used to inform user of changes
 tk.Label(leftFrame, text="Message Box:").grid(row=8, column=0, sticky="w", pady=(30,0))
 
+#Message box
 messageBox = tk.Entry(leftFrame)
 messageBox.grid(row=9, column=0, columnspan=2, sticky="nsew", pady=(5,0))
 messageBox.config(state="disabled")
-
-
 
 #selectmode-can select one row at a time.
 columnTags = ["Date", "Category", "Price", "Description"]
@@ -133,12 +164,6 @@ treeView = ttk.Treeview(root, selectmode="browse", show="headings", columns=colu
 for col in columnTags:
     treeView.heading(col, text=col)
     treeView.column(col, width=50)
-
-#make it so the add method is called from backEnd class(pTracker) then get the list of items 
-#and then return the values so they can be inserted. Do a check if values are correct thought.
-#I think include an error box to display errors and successes.
-treeView.insert("", tk.END, values=("2025-09-22", "Food", "12.50", "Lunch"))
-treeView.insert("", tk.END, values=("2025-09-23", "Transport", "3.00", "Bus ticket"))
 
 #shows the tree
 treeView.grid(row=0, column=2, sticky="nsew", padx=5, pady=5)
